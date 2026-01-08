@@ -1,8 +1,9 @@
 import '@/styles/globals.css';
 import type { Metadata } from 'next';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
-  title: 'Enterprise Portal',
+  title: 'Logistics Enterprise Portal',
   description: 'Unified dashboard for Power BI reports and Copilot Studio chatbots',
 };
 
@@ -13,7 +14,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <Script
+          src="https://cdn.jsdelivr.net/npm/powerbi-client@2.21.1/dist/powerbi.min.js"
+          strategy="beforeInteractive"
+        />
+        {children}
+      </body>
     </html>
   );
 }

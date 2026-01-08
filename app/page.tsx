@@ -87,7 +87,7 @@ export default function Home() {
               <rect x="22" y="22" width="14" height="14" rx="3" fill="currentColor" opacity="0.3"/>
             </svg>
           </div>
-          <h1 className={styles.loginTitle}>Enterprise Portal</h1>
+          <h1 className={styles.loginTitle}>Logistics Enterprise Portal</h1>
           <p className={styles.loginSubtitle}>Sign in to access your dashboards</p>
         </div>
 
@@ -164,25 +164,9 @@ export default function Home() {
             )}
           </button>
         </form>
-
-        <div className={styles.loginFooter}>
-          <div className={styles.demoCredentials}>
-            <p className={styles.demoTitle}>Demo Credentials</p>
-            <div className={styles.credentialsList}>
-              <div className={styles.credential}>
-                <span className={styles.credentialRole}>Admin:</span>
-                <code>admin@admin.com / Admin123</code>
-              </div>
-              <div className={styles.credential}>
-                <span className={styles.credentialRole}>User:</span>
-                <code>user@user.com / User123</code>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
-      <p className={styles.copyright}>© 2024 Enterprise Portal. All rights reserved.</p>
+      <p className={styles.copyright}>© 2024 Logistics Enterprise Portal. All rights reserved.</p>
     </div>
   );
 }

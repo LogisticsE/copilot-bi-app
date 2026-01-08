@@ -1,4 +1,4 @@
-# Enterprise Portal
+# Logistics Enterprise Portal
 
 A modern web portal for embedding Power BI reports and Microsoft Copilot Studio chatbots with role-based access control.
 
@@ -9,7 +9,7 @@ A modern web portal for embedding Power BI reports and Microsoft Copilot Studio 
 - 🤖 **Copilot Studio Integration** - Embed Microsoft Copilot Studio chatbots
 - ⚙️ **Admin Panel** - Manage menu items, add/edit/delete integrations
 - 🎨 **Modern UI** - Beautiful, responsive design with dark theme
-- 💾 **Persistent Storage** - Menu configurations saved in localStorage
+- 💾 **Persistent Storage** - Menu configurations saved in Upstash Redis (shared across all users)
 
 ## Demo Credentials
 
@@ -26,15 +26,55 @@ A modern web portal for embedding Power BI reports and Microsoft Copilot Studio 
 npm install
 ```
 
-### 2. Run Development Server
+### 2. Set Up Upstash Redis (Required for Persistent Storage)
+
+The application uses Upstash Redis for persistent storage so that all users can see the same menu items and Power BI credentials.
+
+**Free Tier Available:** Upstash offers a free tier with 10,000 commands/day and 256 MB storage.
+
+#### Setup Steps:
+
+1. **Create an Upstash account:**
+   - Go to [https://console.upstash.com/](https://console.upstash.com/)
+   - Sign up for a free account
+
+2. **Create a Redis database:**
+   - Click "Create Database"
+   - Choose a name and region (closest to your users)
+   - Select the "Free" tier
+   - Click "Create"
+
+3. **Get your credentials:**
+   - After creating the database, go to the "Details" tab
+   - Copy the `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`
+
+4. **Set environment variables:**
+
+   **For local development:**
+   - Create a `.env.local` file in the project root
+   - Add your credentials:
+   ```env
+   UPSTASH_REDIS_REST_URL=https://your-redis-instance.upstash.io
+   UPSTASH_REDIS_REST_TOKEN=your-redis-token-here
+   ```
+
+   **For Vercel deployment:**
+   - Go to your Vercel project settings
+   - Navigate to "Environment Variables"
+   - Add both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`
+   - Redeploy your application
+
+### 3. Run Development Server
 
 ```bash
 npm run dev
 ```
 
-### 3. Open in Browser
+### 4. Open in Browser
 
 Navigate to [http://localhost:3000](http://localhost:3000)
+
+**Note:** If Redis is not configured, the app will still work but will use default items and won't persist changes across users.
 
 ## Deployment to Vercel
 
@@ -103,6 +143,8 @@ For Power BI embedding to work, you need:
 portal-app/
 ├── app/
 │   ├── api/
+│   │   ├── menu-items/
+│   │   │   └── route.ts          # Menu items API (GET/POST)
 │   │   └── powerbi/
 │   │       └── embed/
 │   │           └── route.ts      # Power BI token generation API
@@ -121,7 +163,8 @@ portal-app/
 ├── lib/
 │   ├── types.ts                  # TypeScript type definitions
 │   ├── auth.ts                   # Authentication utilities
-│   └── storage.ts                # localStorage management
+│   ├── storage.ts               # API-based storage management
+│   └── redis.ts                  # Upstash Redis client
 ├── styles/
 │   └── globals.css               # Global styles and CSS variables
 ├── package.json
@@ -170,9 +213,17 @@ const USERS = {
 };
 ```
 
-## Environment Variables (Production)
+## Environment Variables
 
-For production, store sensitive data in environment variables:
+### Required for Persistent Storage
+
+```env
+# .env.local
+UPSTASH_REDIS_REST_URL=https://your-redis-instance.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your-redis-token-here
+```
+
+### Optional (for Power BI)
 
 ```env
 # .env.local
@@ -180,6 +231,8 @@ POWERBI_CLIENT_ID=your-client-id
 POWERBI_CLIENT_SECRET=your-client-secret
 POWERBI_TENANT_ID=your-tenant-id
 ```
+
+**For Vercel:** Add these in Project Settings → Environment Variables
 
 ## Browser Support
 

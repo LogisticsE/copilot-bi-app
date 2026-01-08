@@ -6,7 +6,7 @@ import Sidebar from './Sidebar';
 import ContentViewer from './ContentViewer';
 import AdminPanel from './AdminPanel';
 import { User, MenuItem } from '@/lib/types';
-import { getMenuItems } from '@/lib/storage';
+import { fetchMenuItems } from '@/lib/storage';
 
 interface DashboardProps {
   user: User;
@@ -23,8 +23,8 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
     loadMenuItems();
   }, []);
 
-  const loadMenuItems = () => {
-    const items = getMenuItems();
+  const loadMenuItems = async () => {
+    const items = await fetchMenuItems();
     setMenuItems(items.sort((a, b) => a.order - b.order));
   };
 
@@ -38,8 +38,8 @@ export default function Dashboard({ user, onLogout }: DashboardProps) {
     setActiveItem(null);
   };
 
-  const handleItemsUpdated = () => {
-    loadMenuItems();
+  const handleItemsUpdated = async () => {
+    await loadMenuItems();
   };
 
   const isAdmin = user.role === 'admin';

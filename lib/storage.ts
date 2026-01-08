@@ -1,6 +1,7 @@
 import { MenuItem } from './types';
 
 const STORAGE_KEY = 'portal_menu_items';
+const API_URL = '/api/menu-items';
 
 // Default menu items for demo
 const DEFAULT_ITEMS: MenuItem[] = [
@@ -34,60 +35,120 @@ const DEFAULT_ITEMS: MenuItem[] = [
   },
 ];
 
+// Server-side: return default items
 export function getMenuItems(): MenuItem[] {
   if (typeof window === 'undefined') return DEFAULT_ITEMS;
   
+  // Fallback to localStorage if API fails (for offline support)
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       return JSON.parse(stored);
     }
-    // Initialize with default items
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ITEMS));
-    return DEFAULT_ITEMS;
   } catch {
-    return DEFAULT_ITEMS;
+    // Ignore localStorage errors
+  }
+  
+  return DEFAULT_ITEMS;
+}
+
+// Client-side: fetch from API
+export async function fetchMenuItems(): Promise<MenuItem[]> {
+  if (typeof window === 'undefined') return DEFAULT_ITEMS;
+  
+  try {
+    const response = await fetch(API_URL);
+    if (!response.ok) {
+      throw new Error('Failed to fetch menu items');
+    }
+    const data = await response.json();
+    const items = data.items || [];
+    
+    // Cache in localStorage as fallback
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    } catch {
+      // Ignore localStorage errors
+    }
+    
+    return items;
+  } catch (error) {
+    console.error('Error fetching menu items from API:', error);
+    // Fallback to localStorage
+    return getMenuItems();
   }
 }
 
-export function saveMenuItems(items: MenuItem[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+// Save menu items to server
+export async function saveMenuItems(items: MenuItem[]): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ items }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to save menu items');
+    }
+    
+    // Update localStorage cache
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    } catch {
+      // Ignore localStorage errors
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error saving menu items to API:', error);
+    // Fallback to localStorage
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
-export function addMenuItem(item: Omit<MenuItem, 'id' | 'createdAt'>): MenuItem {
-  const items = getMenuItems();
+export async function addMenuItem(item: Omit<MenuItem, 'id' | 'createdAt'>): Promise<MenuItem> {
+  const items = await fetchMenuItems();
   const newItem: MenuItem = {
     ...item,
     id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     createdAt: new Date().toISOString(),
   };
   items.push(newItem);
-  saveMenuItems(items);
+  await saveMenuItems(items);
   return newItem;
 }
 
-export function updateMenuItem(id: string, updates: Partial<MenuItem>): MenuItem | null {
-  const items = getMenuItems();
+export async function updateMenuItem(id: string, updates: Partial<MenuItem>): Promise<MenuItem | null> {
+  const items = await fetchMenuItems();
   const index = items.findIndex((item) => item.id === id);
   if (index === -1) return null;
   
   items[index] = { ...items[index], ...updates };
-  saveMenuItems(items);
+  await saveMenuItems(items);
   return items[index];
 }
 
-export function deleteMenuItem(id: string): boolean {
-  const items = getMenuItems();
+export async function deleteMenuItem(id: string): Promise<boolean> {
+  const items = await fetchMenuItems();
   const filtered = items.filter((item) => item.id !== id);
   if (filtered.length === items.length) return false;
   
-  saveMenuItems(filtered);
+  await saveMenuItems(filtered);
   return true;
 }
 
-export function reorderMenuItems(orderedIds: string[]): void {
-  const items = getMenuItems();
+export async function reorderMenuItems(orderedIds: string[]): Promise<void> {
+  const items = await fetchMenuItems();
   const reordered = orderedIds
     .map((id, index) => {
       const item = items.find((i) => i.id === id);
@@ -96,5 +157,5 @@ export function reorderMenuItems(orderedIds: string[]): void {
     })
     .filter(Boolean) as MenuItem[];
   
-  saveMenuItems(reordered);
+  await saveMenuItems(reordered);
 }

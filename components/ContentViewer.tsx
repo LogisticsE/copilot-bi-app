@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styles from './ContentViewer.module.css';
 import { MenuItem, CopilotConfig, PowerBIConfig, PowerBIEmbedInfo } from '@/lib/types';
+
+// Power BI types (will be available when library loads)
+declare global {
+  interface Window {
+    powerbi?: any;
+  }
+}
 
 interface ContentViewerProps {
   item: MenuItem;
@@ -51,9 +58,22 @@ function PowerBIViewer({ item, config }: { item: MenuItem; config: PowerBIConfig
   const [embedInfo, setEmbedInfo] = useState<PowerBIEmbedInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const embedContainerRef = useRef<HTMLDivElement>(null);
+  const powerbiRef = useRef<any>(null);
 
   useEffect(() => {
     loadEmbedInfo();
+    
+    // Cleanup on unmount
+    return () => {
+      if (powerbiRef.current && embedContainerRef.current) {
+        try {
+          powerbiRef.current.reset(embedContainerRef.current);
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
+    };
   }, [item.id]);
 
   const loadEmbedInfo = async () => {
@@ -61,16 +81,18 @@ function PowerBIViewer({ item, config }: { item: MenuItem; config: PowerBIConfig
     setError(null);
     
     try {
-      // In a real implementation, this would call your backend API
-      // For now, we'll simulate the embed info or show configuration
-      
       // Check if config has valid values (not placeholder values)
       const hasValidConfig = 
         config.clientId && 
         config.clientId !== 'your-client-id' &&
+        config.clientSecret &&
+        config.clientSecret !== 'your-client-secret' &&
         config.tenantId &&
+        config.tenantId !== 'your-tenant-id' &&
         config.workspaceId &&
-        config.reportId;
+        config.workspaceId !== 'your-workspace-id' &&
+        config.reportId &&
+        config.reportId !== 'your-report-id';
       
       if (!hasValidConfig) {
         setError('Power BI configuration incomplete. Please configure the report settings in the admin panel.');
@@ -78,17 +100,28 @@ function PowerBIViewer({ item, config }: { item: MenuItem; config: PowerBIConfig
         return;
       }
       
-      // Simulate API call to get embed token
-      // In production, this would be: const response = await fetch('/api/powerbi/embed', { ... })
-      
-      // For demo purposes, construct the embed URL
-      const embedUrl = `https://app.powerbi.com/reportEmbed?reportId=${config.reportId}&groupId=${config.workspaceId}`;
-      
-      setEmbedInfo({
-        embedToken: 'demo-token', // Would come from backend
-        embedUrl,
-        reportId: config.reportId,
+      // Call the backend API to get embed token
+      const response = await fetch('/api/powerbi/embed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clientId: config.clientId,
+          clientSecret: config.clientSecret,
+          tenantId: config.tenantId,
+          workspaceId: config.workspaceId,
+          reportId: config.reportId,
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to generate embed token' }));
+        throw new Error(errorData.error || 'Failed to generate embed token');
+      }
+
+      const embedData = await response.json();
+      setEmbedInfo(embedData);
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load report');
@@ -96,6 +129,80 @@ function PowerBIViewer({ item, config }: { item: MenuItem; config: PowerBIConfig
       setLoading(false);
     }
   };
+
+  // Embed the report when embedInfo is available
+  useEffect(() => {
+    if (!embedInfo || !embedContainerRef.current || loading) {
+      return;
+    }
+
+    // Check if Power BI library is loaded
+    if (typeof window === 'undefined' || !(window as any).powerbi) {
+      setError('Power BI library is loading. Please wait...');
+      // Retry after a short delay
+      const timer = setTimeout(() => {
+        if ((window as any).powerbi) {
+          setError(null);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+
+    try {
+      const powerbi = window.powerbi;
+      if (!powerbi) {
+        setError('Power BI library not loaded');
+        return;
+      }
+
+      // Initialize Power BI service
+      if (!powerbiRef.current) {
+        powerbiRef.current = new powerbi.service.Service(
+          powerbi.factories.hpmFactory,
+          powerbi.factories.wpmpFactory,
+          powerbi.factories.routerFactory
+        );
+      }
+
+      // Clear previous embed
+      if (embedContainerRef.current) {
+        powerbiRef.current.reset(embedContainerRef.current);
+      }
+
+      // Configure embed settings
+      const embedConfiguration = {
+        type: 'report',
+        id: embedInfo.reportId,
+        embedUrl: embedInfo.embedUrl,
+        accessToken: embedInfo.embedToken,
+        tokenType: powerbi.models.TokenType.Embed,
+        settings: {
+          panes: {
+            filters: { expanded: false, visible: true },
+            pageNavigation: { visible: true },
+          },
+          background: powerbi.models.BackgroundType.Transparent,
+        },
+      };
+
+      // Embed the report
+      const report = powerbiRef.current.embed(embedContainerRef.current, embedConfiguration);
+
+      // Handle embed events
+      report.on('loaded', () => {
+        console.log('Power BI report loaded successfully');
+      });
+
+      report.on('error', (event: any) => {
+        console.error('Power BI embed error:', event);
+        setError('Failed to embed Power BI report. Please check your configuration.');
+      });
+
+    } catch (err) {
+      console.error('Error embedding Power BI report:', err);
+      setError('Failed to embed Power BI report');
+    }
+  }, [embedInfo, loading]);
 
   return (
     <div className={styles.container}>
@@ -146,29 +253,12 @@ function PowerBIViewer({ item, config }: { item: MenuItem; config: PowerBIConfig
           </div>
         ) : (
           <div className={styles.iframeWrapper}>
-            <div id={`powerbi-container-${item.id}`} className={styles.powerbiContainer}>
-              {/* In production, Power BI JS would embed here */}
-              <div className={styles.demoPlaceholder}>
-                <div className={styles.demoIcon}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="18" y1="20" x2="18" y2="10"/>
-                    <line x1="12" y1="20" x2="12" y2="4"/>
-                    <line x1="6" y1="20" x2="6" y2="14"/>
-                  </svg>
-                </div>
-                <h3>Power BI Report</h3>
-                <p>Report ID: <code>{config.reportId}</code></p>
-                <p>Workspace ID: <code>{config.workspaceId}</code></p>
-                <div className={styles.demoNote}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="16" x2="12" y2="12"/>
-                    <line x1="12" y1="8" x2="12.01" y2="8"/>
-                  </svg>
-                  <span>Configure your backend API to enable live embedding</span>
-                </div>
-              </div>
-            </div>
+            <div 
+              ref={embedContainerRef}
+              id={`powerbi-container-${item.id}`} 
+              className={styles.powerbiContainer}
+              style={{ width: '100%', height: '100%', minHeight: '600px' }}
+            />
           </div>
         )}
       </div>

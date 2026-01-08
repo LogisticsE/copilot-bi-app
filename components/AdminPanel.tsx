@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import styles from './AdminPanel.module.css';
 import { MenuItem, MenuItemType, CopilotConfig, PowerBIConfig } from '@/lib/types';
-import { getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem } from '@/lib/storage';
+import { fetchMenuItems, addMenuItem, updateMenuItem, deleteMenuItem } from '@/lib/storage';
 
 interface AdminPanelProps {
   onItemsUpdated: () => void;
@@ -30,8 +30,8 @@ export default function AdminPanel({ onItemsUpdated }: AdminPanelProps) {
     loadItems();
   }, []);
 
-  const loadItems = () => {
-    const loadedItems = getMenuItems();
+  const loadItems = async () => {
+    const loadedItems = await fetchMenuItems();
     setItems(loadedItems.sort((a, b) => a.order - b.order));
   };
 
@@ -45,20 +45,20 @@ export default function AdminPanel({ onItemsUpdated }: AdminPanelProps) {
     setIsCreating(false);
   };
 
-  const handleDelete = (id: string) => {
-    deleteMenuItem(id);
-    loadItems();
+  const handleDelete = async (id: string) => {
+    await deleteMenuItem(id);
+    await loadItems();
     onItemsUpdated();
     setShowDeleteConfirm(null);
   };
 
-  const handleSave = (item: Omit<MenuItem, 'id' | 'createdAt'>) => {
+  const handleSave = async (item: Omit<MenuItem, 'id' | 'createdAt'>) => {
     if (editingItem) {
-      updateMenuItem(editingItem.id, item);
+      await updateMenuItem(editingItem.id, item);
     } else {
-      addMenuItem(item);
+      await addMenuItem(item);
     }
-    loadItems();
+    await loadItems();
     onItemsUpdated();
     setEditingItem(null);
     setIsCreating(false);

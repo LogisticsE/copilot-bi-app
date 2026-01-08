@@ -9,11 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "14.2.3",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "@azure/msal-browser": "^3.13.0",
+    "@upstash/redis": "^1.36.1",
     "lucide-react": "^0.378.0",
-    "@azure/msal-browser": "^3.13.0"
+    "next": "14.2.3",
+    "powerbi-client": "^2.23.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^20",
