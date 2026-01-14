@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MenuItem } from '@/lib/types';
-import { redis, isRedisConfigured } from '@/lib/redis';
+import { getRedisClient, isRedisConfigured } from '@/lib/redis';
 
 const STORAGE_KEY = 'portal:menu_items';
 
@@ -44,6 +44,14 @@ export async function GET() {
       return NextResponse.json({ 
         items: DEFAULT_ITEMS,
         warning: 'Redis not configured. Using default items. Please set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables.'
+      });
+    }
+
+    const redis = getRedisClient();
+    if (!redis) {
+      return NextResponse.json({ 
+        items: DEFAULT_ITEMS,
+        warning: 'Redis client unavailable. Verify UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.'
       });
     }
 
@@ -93,6 +101,16 @@ export async function POST(request: NextRequest) {
         { 
           error: 'Redis not configured. Please set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN environment variables.',
           items: items // Return items anyway for development
+        },
+        { status: 503 }
+      );
+    }
+
+    const redis = getRedisClient();
+    if (!redis) {
+      return NextResponse.json(
+        { 
+          error: 'Redis client unavailable after configuration check. Verify UPSTASH environment variables.',
         },
         { status: 503 }
       );

@@ -96,6 +96,59 @@ npm i -g vercel
 vercel
 ```
 
+## Deployment to Azure Web App (App Service)
+
+Deploy as a Node.js app so SSR and API routes stay active.
+
+1. **Prereqs**
+   - Azure CLI logged in (`az login`)
+   - App Service plan (Linux recommended) with Node 18/20 runtime (`--runtime "NODE|20-lts"`).
+
+2. **Create resources (example)**
+   ```bash
+   az group create -n portal-rg -l eastus
+   az appservice plan create -n portal-plan -g portal-rg --sku B1 --is-linux
+   az webapp create -n portal-webapp -g portal-rg --plan portal-plan --runtime "NODE|20-lts"
+   ```
+
+3. **App settings / secrets**
+   ```bash
+   az webapp config appsettings set -g portal-rg -n portal-webapp --settings \
+     UPSTASH_REDIS_REST_URL="https://your-redis-instance.upstash.io" \
+     UPSTASH_REDIS_REST_TOKEN="your-redis-token" \
+     POWERBI_CLIENT_ID="your-client-id" \
+     POWERBI_CLIENT_SECRET="your-client-secret" \
+     POWERBI_TENANT_ID="your-tenant-id" \
+     SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+     WEBSITE_NODE_DEFAULT_VERSION="~20"
+   ```
+   - Upstash keys are required for persistence; Power BI values are optional if you enter them manually in the UI.
+   - `SCM_DO_BUILD_DURING_DEPLOYMENT=true` lets Kudu/Oryx run `npm run build` for you.
+
+4. **Deploy**
+   - Build locally then zip deploy:
+     ```bash
+     npm install
+     npm run build
+     az webapp deploy -g portal-rg -n portal-webapp --src-path . --type zip
+     ```
+   - Or let App Service build automatically:
+     ```bash
+     az webapp up -n portal-webapp -g portal-rg --runtime "NODE|20-lts"
+     ```
+
+5. **Run/verify**
+   - Startup command can stay default `npm start` (`next start` binds to Azure-provided `PORT` and `0.0.0.0`).
+   - Open the site:
+     ```bash
+     az webapp browse -n portal-webapp -g portal-rg
+     ```
+
+6. **Logs**
+   ```bash
+   az webapp log tail -n portal-webapp -g portal-rg
+   ```
+
 ## Configuration
 
 ### Adding a Copilot Studio Chatbot
